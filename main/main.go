@@ -24,7 +24,7 @@ func test() {
 	src.TestBaseline(true)
 }
 func eval() {
-	src.AbortRate_RunningTime_Evaluation()
+	//src.AbortRate_RunningTime_Evaluation()
 	//src.Instance_Not_Miss_Evaluation()
 	//src.Instance_Abort_Evaluation()
 	//src.Instance_ReExectution_Time_Evaluation()
@@ -37,6 +37,7 @@ func eval() {
 	//src.Instance_Number_Time_Evaluation()
 	//src.Instance_Number_tps_Evaluation()
 	//src.CPU_evaluation()
+	src.Instance_Paralleling_Evaluation()
 }
 func main() {
 	rand.Seed(time.Now().UnixNano())

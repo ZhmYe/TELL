@@ -376,14 +376,28 @@ func Instance_Number_tps_Evaluation() {
 	}
 }
 
-//func CPU_evaluation() {
-//	go func() {
-//		peer := newPeer(4)
-//		peer.run()
-//	}()
-//	for i := 1; i < 20; i++ {
-//		time.Sleep(time.Millisecond * time.Duration(40))
-//		percent, _ := cpu.Percent(time.Second, false)
-//		fmt.Printf("%v, cpu percent: %v", i, percent)
+//	func CPU_evaluation() {
+//		go func() {
+//			peer := newPeer(4)
+//			peer.run()
+//		}()
+//		for i := 1; i < 20; i++ {
+//			time.Sleep(time.Millisecond * time.Duration(40))
+//			percent, _ := cpu.Percent(time.Second, false)
+//			fmt.Printf("%v, cpu percent: %v", i, percent)
+//		}
 //	}
-//}
+func Instance_Paralleling_Evaluation() {
+	globalSmallBank.UpdateZipfian()
+	config.BlockSize = 10000
+	instance := newInstance(time.Duration(10), 0)
+	instance.start()
+	startTime := time.Now()
+	config.parallelingNumber = 1
+	//for i := 0; i < 10; i++ {
+	//instance.simulateExecution(1)
+	instance.execute(1)
+	//instance.reExecute(abortTxs)
+	//}
+	fmt.Println(time.Since(startTime) / 10)
+}

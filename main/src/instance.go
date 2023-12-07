@@ -2,6 +2,7 @@ package src
 
 import (
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -53,20 +54,20 @@ func (instance *Instance) blockOut() {
 }
 func (instance *Instance) start() {
 	// here, in some Evaluation, should delete "go func()" to simply test.
-	go func() {
-		instance.updateLastBlockOutTimeStamp()
-		for {
-			if len(instance.blocks) >= instance.maxBlockNumber {
-				instance.finish = true
-				//fmt.Println("Instance " + strconv.Itoa(instance.id) + " finished...")
-				break
-			}
-			if instance.checkTimeout() {
-				instance.blockOut()
-				instance.updateLastBlockOutTimeStamp()
-			}
+	//go func() {
+	instance.updateLastBlockOutTimeStamp()
+	for {
+		if len(instance.blocks) >= instance.maxBlockNumber {
+			instance.finish = true
+			//fmt.Println("Instance " + strconv.Itoa(instance.id) + " finished...")
+			break
 		}
-	}()
+		if instance.checkTimeout() {
+			instance.blockOut()
+			instance.updateLastBlockOutTimeStamp()
+		}
+	}
+	//}()
 }
 func (instance *Instance) simulateExecution(number int) int {
 	lastIndex := instance.hasExecutedIndex + number
@@ -78,7 +79,7 @@ func (instance *Instance) simulateExecution(number int) int {
 	}
 	instance.simulate = newSimulateEngine(instance.blocks[instance.hasExecutedIndex:lastIndex])
 	instance.acgs = instance.simulate.SimulateExecution()
-	instance.record, instance.cascade = computeCascade(instance.acgs)
+	//instance.record, instance.cascade = computeCascade(instance.acgs)
 	return lastIndex - instance.hasExecutedIndex
 }
 func (instance *Instance) abortReadSet(readSet []Unit) {
@@ -156,17 +157,43 @@ func (instance *Instance) execute(n int) []*Transaction {
 	}
 	for _, block := range instance.blocks[instance.hasExecutedIndex : instance.hasExecutedIndex+n] {
 		block.finishTime = time.Since(block.createTime)
+		tmp := len(block.txs) - len(block.txs)%config.parallelingNumber + config.parallelingNumber
+		for j := 0; j < tmp; j += config.parallelingNumber {
+			var wg4tx sync.WaitGroup
+			wg4tx.Add(config.parallelingNumber)
+			for k := 0; k < config.parallelingNumber; k++ {
+				if j+k >= len(block.txs) {
+					wg4tx.Done()
+					continue
+				}
+				tmpTx := block.txs[j+k]
+				go func(tx *Transaction) {
+					defer wg4tx.Done()
+					for _, op := range tx.Ops {
+						if op.Type == OpWrite {
+							globalSmallBank.Write(op.Key, op.WriteResult)
+						}
+					}
+				}(tmpTx)
+			}
+			wg4tx.Wait()
+		}
 		for _, tx := range block.txs {
 			if tx.abort {
 				abortTxs = append(abortTxs, tx)
-				continue
-			}
-			for _, op := range tx.Ops {
-				if op.Type == OpWrite {
-					globalSmallBank.Write(op.Key, op.WriteResult)
-				}
 			}
 		}
+		//for _, tx := range block.txs {
+		//	if tx.abort {
+		//		abortTxs = append(abortTxs, tx)
+		//		continue
+		//	}
+		//	for _, op := range tx.Ops {
+		//		if op.Type == OpWrite {
+		//			globalSmallBank.Write(op.Key, op.WriteResult)
+		//		}
+		//	}
+		//}
 		block.finish = true
 	}
 	instance.hasExecutedIndex = lastIndex

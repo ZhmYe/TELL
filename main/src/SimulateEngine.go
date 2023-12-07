@@ -1,8 +1,6 @@
 package src
 
 import (
-	"math"
-	"runtime"
 	"strconv"
 	"sync"
 )
@@ -24,18 +22,25 @@ func newSimulateEngine(blocks []*Block) *SimulateEngine {
 
 // SimulateExecution
 func (e *SimulateEngine) SimulateExecution() []ACG {
-	parallelingNumber := int(math.Min(float64(runtime.NumCPU()), float64(config.BlockSize)))
+	parallelingNumber := config.parallelingNumber
 	for _, block := range e.blocks {
-		for j := 0; j < len(block.txs); j += parallelingNumber {
+		tmp := len(block.txs) + (parallelingNumber - len(block.txs)%parallelingNumber)
+		for j := 0; j < tmp; j += parallelingNumber {
 			var wg4tx sync.WaitGroup
 			wg4tx.Add(parallelingNumber)
 			for k := 0; k < parallelingNumber; k++ {
-				go func(index int, bias int, wg4tx *sync.WaitGroup, buffer map[string]int) {
+				if j+k >= len(block.txs) {
+					wg4tx.Done()
+					continue
+				}
+				tmpTx := block.txs[j+k]
+				tmpBuff := e.buffer
+				go func(tx *Transaction, buffer map[string]int) {
 					defer wg4tx.Done()
-					if index+bias >= len(block.txs) {
-						return
-					}
-					tx := block.txs[index+bias]
+					//if index+bias >= len(block.txs) {
+					//	return
+					//}
+					//tx := block.txs[index+bias]
 					for _, op := range tx.Ops {
 						if op.Type == OpRead {
 							readResult, exist := buffer[op.Key]
@@ -56,11 +61,11 @@ func (e *SimulateEngine) SimulateExecution() []ACG {
 							//globalSmallBank.Write(op.Key, strconv.Itoa(WriteResult))
 						}
 					}
-				}(j, k, &wg4tx, e.buffer)
+				}(tmpTx, tmpBuff)
 			}
 			wg4tx.Wait()
 		}
-		nezha := newNeZha(block.txs)
+		nezha := newHarmony(block.txs)
 		nezha.TransactionSort()
 		for address, stateSet := range nezha.acg {
 			writeSet := stateSet.WriteSet
